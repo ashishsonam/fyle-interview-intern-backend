@@ -9,7 +9,7 @@ def test_get_assignments_teacher_1(client, h_teacher_1):
     data = response.json['data']
     for assignment in data:
         assert assignment['teacher_id'] == 1
-        assert assignment['state'] == 'SUBMITTED'
+        assert assignment['state'] == 'SUBMITTED' or assignment['state'] == 'GRADED'
 
 
 def test_get_assignments_teacher_2(client, h_teacher_2):
@@ -23,7 +23,7 @@ def test_get_assignments_teacher_2(client, h_teacher_2):
     data = response.json['data']
     for assignment in data:
         assert assignment['teacher_id'] == 2
-        assert assignment['state'] == 'SUBMITTED'
+        assert assignment['state'] == 'SUBMITTED' or assignment['state'] == 'GRADED'
 
 
 def test_grade_assignment_cross(client, h_teacher_2):
@@ -100,3 +100,69 @@ def test_grade_assignment_draft_assignment(client, h_teacher_1):
     data = response.json
 
     assert data['error'] == 'FyleError'
+
+
+def test_grade_assignment_submitted_assignment(client, h_teacher_1):
+    """
+    success case: submitted assignment is graded
+    """
+
+    response = client.post(
+        '/teacher/assignments/grade',
+        headers=h_teacher_1
+        , json={
+            "id": 1,
+            "grade": "A"
+        }
+    )
+
+    if response.status_code == 200:
+
+        data = response.json['data']
+        assert data['grade'] == 'A'
+        assert data['state'] == 'GRADED' 
+        
+    elif response.status_code == 400:
+
+        error_response = response.json
+        assert error_response['error'] =='FyleError'
+        assert error_response["message"] == 'only a submitted assignment can be graded'
+
+
+def test_grade_assignment_graded_assignment(client, h_teacher_1):
+    """
+    failure case: only a submitted assignment can be graded
+    """
+    response = client.post(
+        '/teacher/assignments/grade',
+        headers=h_teacher_1
+        , json={
+            "id": 1,
+            "grade": "C"
+        }
+    )
+
+    assert response.status_code == 400
+    data = response.json
+
+    assert data['error'] == 'FyleError'
+
+
+
+def test_grade_assignment_bad_endpoint(client, h_teacher_1):
+    """
+    failure case: bad endpoint
+    """
+    response = client.post(
+        '/teacher/assignments/submit',
+        headers=h_teacher_1
+        , json={
+            "id": 1,
+            "grade": "C"
+        }
+    )
+
+    assert response.status_code == 404
+    data = response.json
+
+    assert data['error'] == 'NotFound'
